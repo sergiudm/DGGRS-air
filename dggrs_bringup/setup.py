@@ -25,6 +25,7 @@ setup(
     entry_points={
         "console_scripts": [
             "mock_inputs_node = dggrs_bringup.mock_inputs_node:main",
+            "dggrs_simulator = dggrs_bringup.simulator:main",
         ],
     },
 )

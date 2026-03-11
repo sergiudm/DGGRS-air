@@ -8,7 +8,7 @@ Repository: `https://github.com/sergiudm/DGGRS-air.git`
 
 ## Project Status
 
-This repository is currently documentation-first. It contains the system design, package contracts, and implementation-facing specifications for the ROS 2 stack, but it does not yet contain the full package implementations.
+This repository now contains lightweight Python reference implementations for the planned ROS 2 packages plus a deterministic simulator for the core click-to-goal math. The code is still scaffold-level rather than hardware-ready, but the topic contracts, launch wiring, and math pipeline can be exercised locally.
 
 The component specifications live under [docs/components/](docs/components/README.md) and act as the source of truth for topics, parameters, and expected runtime behavior.
 
@@ -135,13 +135,25 @@ cd ~/ros2_ws/src
 git clone https://github.com/sergiudm/DGGRS-air.git
 ```
 
-At the moment, this repository provides the design and interface contracts for the system. Once the packages are implemented, the intended workflow is:
+The current workflow for the Python scaffold is:
 
 ```bash
 cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
+```
+
+For a deterministic non-ROS simulation of drone drift, robot motion, and click-to-goal conversion:
+
+```bash
+python3 -m dggrs_bringup.dggrs_bringup.simulator
+```
+
+Or, after installation:
+
+```bash
+dggrs_simulator --json
 ```
 
 ## Planned Bringup Workflow
