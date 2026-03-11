@@ -6,8 +6,6 @@
   <maintainer email="maintainers@example.com">DGGRS Contributors</maintainer>
   <license>Apache-2.0</license>
 
-  <buildtool_depend>ament_python</buildtool_depend>
-
   <exec_depend>dggrs_bridge</exec_depend>
   <exec_depend>dggrs_spatial_math</exec_depend>
   <exec_depend>dggrs_streamer</exec_depend>
