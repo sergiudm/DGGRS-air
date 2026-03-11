@@ -1,0 +1,8 @@
+spatial_math_node:
+  ros__parameters:
+    max_click_age_ms: 500
+    max_robot_pose_age_ms: 500
+    min_altitude_m: 0.5
+    max_altitude_m: 100.0
+    goal_frame_id: odom
+    publish_debug_topics: true

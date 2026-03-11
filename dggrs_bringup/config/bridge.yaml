@@ -1,0 +1,15 @@
+bridge_node:
+  ros__parameters:
+    ui_transport: websocket
+    ui_bind_host: 0.0.0.0
+    ui_bind_port: 9000
+    ground_robot_transport: ros2
+    allowed_origin: "*"
+    click_timeout_ms: 500
+    goal_retry_count: 3
+    image_width: 1280
+    image_height: 720
+    mock_click_enabled: false
+    mock_click_x: 640.0
+    mock_click_y: 480.0
+    mock_click_period_s: 2.0

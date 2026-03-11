@@ -1,0 +1,10 @@
+streamer_node:
+  ros__parameters:
+    source_topic: /vision/debug_image
+    transport_mode: rtsp
+    codec: h264
+    bitrate_kbps: 4000
+    gop_size: 30
+    bind_host: 0.0.0.0
+    bind_port: 8554
+    overlay_enabled: true

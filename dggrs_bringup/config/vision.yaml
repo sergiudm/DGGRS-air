@@ -1,0 +1,10 @@
+vision_node:
+  ros__parameters:
+    detection_backend: apriltag
+    marker_family: tag36h11
+    confidence_threshold: 0.75
+    publish_debug_image: true
+    image_transport: raw
+    max_detection_age_ms: 250
+    mock_detection_enabled: true
+    default_theta_rad: 0.0
