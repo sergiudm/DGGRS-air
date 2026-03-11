@@ -1,127 +1,171 @@
-# Drone-Guided Ground Robot System (DGGRS)
+# DGGRS Air
 
-This repository contains the ROS 2 software stack for a heterogeneous multi-robot system where a hovering drone acts as an "eye in the sky" guide for a ground robot.
+DGGRS Air is a ROS 2 architecture for a heterogeneous robot team where a hovering drone acts as an overhead guide for a ground robot. The drone streams a downward-facing camera feed to an operator, the operator clicks a destination in the video, and the system converts that image-space click into a local goal for the ground robot.
 
-The software runs on the drone's companion computer (NVIDIA Jetson Orin Nano). It streams low-latency, downward-facing video to a user interface. When the user clicks a target destination on the video feed, the system visually anchors to the ground robot, calculates the target's relative physical coordinates to counteract drone drift, and sends a local odometry goal to the ground robot.
+The design is centered on relative visual geometry rather than the drone's absolute position. That keeps targeting stable even when the drone drifts in hover.
 
-## 🌟 Key Features
+Repository: `https://github.com/sergiudm/DGGRS-air.git`
 
-* **Drift-Resistant Targeting:** Uses relative visual tracking (ArUco/AprilTag or YOLO) to calculate target points relative to the ground robot's current position in the frame, neutralizing drone hover drift.
-* **Hardware-Accelerated Streaming:** Utilizes the Jetson Orin Nano's NVENC hardware encoder via GStreamer for low-latency, high-quality video streaming (WebRTC/RTSP) without bottlenecking the CPU.
-* **Modular ROS 2 Architecture:** Highly decoupled nodes for vision processing, coordinate transformation, and communication.
+## Project Status
 
-## 🛠️ Hardware & Software Requirements
+This repository is currently documentation-first. It contains the system design, package contracts, and implementation-facing specifications for the ROS 2 stack, but it does not yet contain the full package implementations.
+
+The component specifications live under [docs/components/](docs/components/README.md) and act as the source of truth for topics, parameters, and expected runtime behavior.
+
+## What The System Does
+
+- Streams low-latency overhead video from the drone to an operator UI.
+- Detects the ground robot in the image and estimates its in-image heading.
+- Accepts a UI click as the desired destination.
+- Converts that click into a drift-resistant local goal relative to the ground robot.
+- Forwards the goal to the ground robot through ROS 2 or a bridge transport.
+
+## Why Relative Targeting
+
+The key design choice is to avoid depending on the drone's global position for target placement. Instead, the system compares two things observed in the same image:
+
+- the clicked target pixel
+- the ground robot's current pixel position
+
+Both are projected through the camera model using the current altitude. The resulting relative vector is then rotated into the ground robot's local frame. This makes the command resilient to hover drift and GPS noise.
+
+## Planned Package Architecture
+
+The stack is split into five ROS 2 packages:
+
+- `dggrs_vision`: detects the ground robot in the camera image and publishes its image-space pose.
+- `dggrs_streamer`: delivers low-latency video to the operator UI using Jetson-friendly hardware encoding.
+- `dggrs_spatial_math`: converts image clicks and robot image pose into a local goal in the robot frame.
+- `dggrs_bridge`: bridges external UI and robot-network traffic into and out of ROS 2.
+- `dggrs_bringup`: owns launch files, configuration, and full-system wiring.
+
+Detailed package specs:
+
+- [docs/components/dggrs_vision.md](docs/components/dggrs_vision.md)
+- [docs/components/dggrs_streamer.md](docs/components/dggrs_streamer.md)
+- [docs/components/dggrs_spatial_math.md](docs/components/dggrs_spatial_math.md)
+- [docs/components/dggrs_bridge.md](docs/components/dggrs_bridge.md)
+- [docs/components/dggrs_bringup.md](docs/components/dggrs_bringup.md)
+
+## End-To-End Data Flow
+
+1. The downward-facing camera publishes calibrated images.
+2. `dggrs_vision` detects the ground robot and estimates its image-space heading.
+3. `dggrs_streamer` serves video to the operator UI.
+4. The operator clicks a point in the video feed.
+5. `dggrs_bridge` validates and publishes that click into ROS 2.
+6. `dggrs_spatial_math` combines the click, robot image pose, altitude, and camera intrinsics.
+7. The system publishes a local goal for the ground robot.
+8. `dggrs_bridge` or native ROS networking forwards the goal to the robot.
+
+## Mathematical Core
+
+Let the clicked target pixel be $(u_t, v_t)$ and the observed robot pixel be $(u_r, v_r)$. With camera intrinsics $K$ and altitude $Z$, both pixels are unprojected into the camera frame:
+
+$$
+\begin{bmatrix} X_c \\ Y_c \\ Z_c \end{bmatrix}
+=
+Z \cdot K^{-1}
+\begin{bmatrix} u \\ v \\ 1 \end{bmatrix}
+$$
+
+This yields two camera-frame ground points, one for the click and one for the robot. Their relative ground-plane vector is:
+
+$$
+\vec{V}_{cam} =
+\begin{bmatrix}
+X_{c,t} - X_{c,r} \\
+Y_{c,t} - Y_{c,r}
+\end{bmatrix}
+$$
+
+Using the robot's visual heading $\theta_r$, the system rotates that vector into the robot's local frame:
+
+$$
+\begin{bmatrix} X_{goal} \\ Y_{goal} \end{bmatrix}
+=
+\begin{bmatrix}
+\cos(-\theta_r) & -\sin(-\theta_r) \\
+\sin(-\theta_r) & \cos(-\theta_r)
+\end{bmatrix}
+\vec{V}_{cam}
+$$
+
+The result is a target in meters expressed in the ground robot's local frame, typically `odom` or `base_link`.
+
+## Target Deployment Assumptions
 
 ### Hardware
 
-* **Companion Computer:** NVIDIA Jetson Orin Nano (running on the drone).
-* **Camera:** Downward-facing CSI or USB 3.0 camera (calibrated).
-* **Sensors:** RTK GPS module (for accurate drone altitude $Z$).
-* **Ground Robot:** Must have a local odometry frame (`base_link` or `odom`) and a prominent visual fiducial marker (e.g., AprilTag) on its roof.
+- Companion computer: NVIDIA Jetson Orin Nano on the drone.
+- Camera: downward-facing calibrated CSI or USB camera.
+- Altitude source: RTK GPS or equivalent altitude estimate.
+- Ground robot: local odometry frame plus a visible fiducial or otherwise reliable visual marker.
 
 ### Software
 
-* **OS:** Ubuntu 22.04 LTS
-* **Middleware:** ROS 2 (Humble or later)
-* **Dependencies:** * `gstreamer1.0` and `gst-plugins-bad` (with `nvv4l2h264enc` support)
-* `cv_bridge` and `image_transport`
-* `isaac_ros_apriltag` (or standard `apriltag_ros` if not using NVIDIA Isaac ROS)
-* `tf2_ros`
+- Ubuntu 22.04 LTS
+- ROS 2 Humble or later
+- GStreamer with Jetson encoder support such as `nvv4l2h264enc`
+- `cv_bridge` and `image_transport`
+- `tf2_ros`
+- AprilTag, ArUco, or another supported detection backend
 
+## Repository Layout
 
-
-## 🏗️ System Architecture & Package Structure
-
-The repository is structured into the following primary ROS 2 packages:
-
-* `dggrs_vision`: Detects the ground robot in the raw camera feed. Outputs the robot's pixel coordinates and 2D heading in the image frame.
-* `dggrs_streamer`: Subscribes to the raw camera frames, compresses them using hardware acceleration, and serves them to the UI gateway.
-* `dggrs_spatial_math`: The core transformation engine. Subscribes to the UI click coordinates, RTK altitude, and the vision node's output to calculate the physical target.
-* `dggrs_bridge`: Handles external communications, ingesting UI clicks via WebSockets/UDP and transmitting the final physical goal to the ground robot's ROS 2 network.
-
-Detailed package specifications live under [`docs/components/`](docs/components/README.md):
-
-* [`dggrs_vision`](docs/components/dggrs_vision.md)
-* [`dggrs_streamer`](docs/components/dggrs_streamer.md)
-* [`dggrs_spatial_math`](docs/components/dggrs_spatial_math.md)
-* [`dggrs_bridge`](docs/components/dggrs_bridge.md)
-* [`dggrs_bringup`](docs/components/dggrs_bringup.md)
-
-## 🧮 Mathematical Core: The Spatial Transform
-
-To eliminate drone drift, the `dggrs_spatial_math` node avoids using the drone's global global position. Instead, it relies on the camera's intrinsic matrix $K$, the RTK altitude $Z$, the user's target pixel $(u_t, v_t)$, and the tracked robot pixel $(u_r, v_r)$.
-
-The transformation from the 2D pixel space to the ground robot's local 3D frame is calculated as follows:
-
-1. **Unproject Pixels to Camera Frame Rays:**
-We map both the target pixel and the robot pixel to normalized 3D rays in the camera frame using the inverse of the intrinsic matrix $K$:
-$$\begin{bmatrix} X_{c} \\ Y_{c} \\ Z_{c} \end{bmatrix} = Z \cdot K^{-1} \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}$$
-
-
-2. **Calculate Relative Physical Vector:**
-By applying this to both the target point $P_t$ and the robot point $P_r$, we get their 3D coordinates relative to the camera lens. We then find the physical vector $\vec{V}_{cam}$ between them on the ground plane:
-$$\vec{V}_{cam} = \begin{bmatrix} X_{c,t} - X_{c,r} \\ Y_{c,t} - Y_{c,r} \end{bmatrix}$$
-
-
-3. **Rotate to Robot's Local Frame:**
-Finally, we rotate this vector by the ground robot's visual heading $\theta_r$ (extracted from the fiducial marker) to generate the final goal $(X_{goal}, Y_{goal})$ in the ground robot's local odometry frame:
-$$\begin{bmatrix} X_{goal} \\ Y_{goal} \end{bmatrix} = \begin{bmatrix} \cos(-\theta_r) & -\sin(-\theta_r) \\ \sin(-\theta_r) & \cos(-\theta_r) \end{bmatrix} \vec{V}_{cam}$$
-
-
-
-## 🚀 Installation & Setup
-
-1. **Clone the repository into your ROS 2 workspace:**
-```bash
-cd ~/ros2_ws/src
-git clone https://github.com/your-org/dggrs.git
-
+```text
+.
+├── README.md
+└── docs/
+	└── components/
+		├── README.md
+		├── dggrs_bridge.md
+		├── dggrs_bringup.md
+		├── dggrs_spatial_math.md
+		├── dggrs_streamer.md
+		└── dggrs_vision.md
 ```
 
+## Getting Started
 
-2. **Install dependencies using rosdep:**
+Clone the repository into the `src` directory of a ROS 2 workspace:
+
+```bash
+cd ~/ros2_ws/src
+git clone https://github.com/sergiudm/DGGRS-air.git
+```
+
+At the moment, this repository provides the design and interface contracts for the system. Once the packages are implemented, the intended workflow is:
+
 ```bash
 cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
-
-```
-
-
-3. **Build the workspace:**
-```bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
-
-```
-
-
-4. **Source the workspace:**
-```bash
 source install/setup.bash
-
 ```
 
+## Planned Bringup Workflow
 
+The intended full-stack launch entrypoint is:
 
-## 💻 Usage
-
-To launch the entire stack on the Jetson Orin Nano:
-
-1. Update the `config/camera_params.yaml` file with your specific camera's intrinsic matrix and focal length.
-2. Run the main launch file:
 ```bash
 ros2 launch dggrs_bringup air_guide.launch.py
-
 ```
 
-
-
-### Simulating a UI Click
-
-To test the pipeline without the UI connected, you can publish a mock UI click using the command line:
+For pipeline validation, the system is expected to accept a test click like this:
 
 ```bash
 ros2 topic pub -1 /ui/target_click geometry_msgs/msg/Point "{x: 640.0, y: 480.0, z: 0.0}"
-
 ```
 
-The stack will output the calculated local goal on the `/ground_robot/goal_pose` topic.
+The expected output is a local goal on `/ground_robot/goal_pose`.
+
+## Implementation Notes
+
+- Keep package behavior aligned with the specs in [docs/components/](docs/components/README.md).
+- If runtime interfaces change, update the matching component document in the same change.
+- Prefer explicit topic names, frame IDs, and configuration files over hidden launch-time assumptions.
+
+## License
+
+No project license is defined in this repository yet.
