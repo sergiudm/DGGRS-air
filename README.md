@@ -39,6 +39,14 @@ The repository is structured into the following primary ROS 2 packages:
 * `dggrs_spatial_math`: The core transformation engine. Subscribes to the UI click coordinates, RTK altitude, and the vision node's output to calculate the physical target.
 * `dggrs_bridge`: Handles external communications, ingesting UI clicks via WebSockets/UDP and transmitting the final physical goal to the ground robot's ROS 2 network.
 
+Detailed package specifications live under [`docs/components/`](docs/components/README.md):
+
+* [`dggrs_vision`](docs/components/dggrs_vision.md)
+* [`dggrs_streamer`](docs/components/dggrs_streamer.md)
+* [`dggrs_spatial_math`](docs/components/dggrs_spatial_math.md)
+* [`dggrs_bridge`](docs/components/dggrs_bridge.md)
+* [`dggrs_bringup`](docs/components/dggrs_bringup.md)
+
 ## 🧮 Mathematical Core: The Spatial Transform
 
 To eliminate drone drift, the `dggrs_spatial_math` node avoids using the drone's global global position. Instead, it relies on the camera's intrinsic matrix $K$, the RTK altitude $Z$, the user's target pixel $(u_t, v_t)$, and the tracked robot pixel $(u_r, v_r)$.
