@@ -6,6 +6,15 @@ The design is centered on relative visual geometry rather than the drone's absol
 
 Repository: `https://github.com/sergiudm/DGGRS-air.git`
 
+## Status Badges
+
+- `CI`: [![CI](https://github.com/sergiudm/DGGRS-air/actions/workflows/ci.yml/badge.svg)](https://github.com/sergiudm/DGGRS-air/actions/workflows/ci.yml)
+- `dggrs_vision`: [![dggrs vision](https://img.shields.io/badge/dggrs%20vision-scaffold-orange)](docs/components/dggrs_vision.md)
+- `dggrs_streamer`: [![dggrs streamer](https://img.shields.io/badge/dggrs%20streamer-scaffold-orange)](docs/components/dggrs_streamer.md)
+- `dggrs_spatial_math`: [![dggrs spatial math](https://img.shields.io/badge/dggrs%20spatial%20math-reference-brightgreen)](docs/components/dggrs_spatial_math.md)
+- `dggrs_bridge`: [![dggrs bridge](https://img.shields.io/badge/dggrs%20bridge-scaffold-orange)](docs/components/dggrs_bridge.md)
+- `dggrs_bringup`: [![dggrs bringup](https://img.shields.io/badge/dggrs%20bringup-demo--ready-blue)](docs/components/dggrs_bringup.md)
+
 ## Project Status
 
 This repository now contains lightweight Python reference implementations for the planned ROS 2 packages plus a deterministic simulator for the core click-to-goal math. The code is still scaffold-level rather than hardware-ready, but the topic contracts, launch wiring, and math pipeline can be exercised locally.
